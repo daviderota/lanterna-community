@@ -3,7 +3,7 @@
 L'editor dei labirinti di **Lanterna – Il Labirinto Oscuro** e i labirinti creati dai giocatori.
 The maze editor of **Lanterna – The Dark Maze** and the mazes made by players.
 
-**▶ Apri l'editor / Open the editor:** https://daviderota.github.io/lanterna-community/
+**▶ Apri l'editor / Open the editor:** https://rodaown.github.io/lanterna-community/
 
 ## Cosa c'è qui
 
