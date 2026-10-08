@@ -1,0 +1,777 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>body{margin:0}[hidden]{display:none!important}</style>
+</head>
+<body>
+<title>Editor di Lanterna</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: tool window. Header with file actions, left control panel, canvas that pans and zooms, status bar with the file line under the cursor. */
+:root {
+  --bg: #EEF0F2;
+  --panel: #FFFFFF;
+  --ink: #1C2127;
+  --ink-soft: #5D6672;
+  --line: #D3D8DE;
+  --accent: #C4610F;
+  --accent-ink: #FFFFFF;
+  --ok: #1D7A55;
+  --bad: #B3261E;
+  --canvas: #D9DDE2;
+  --c-wall: #2E333C;
+  --c-floor: #F7F5F0;
+  --c-start: #F08A24;
+  --c-exit: #22A37A;
+  --c-gem: #3D86E0;
+  --c-enemy: #7B3FB5;
+  --c-fire: #D9402B;
+  --c-key: #E0A800;
+  --c-hunter: #2E8FB0;
+  --c-fireball: #FF7A1A;
+  --c-lure: #A6D94A;
+  --c-crystal: #4FC8E8;
+  --c-crypt: #3A2E44;
+  --c-gate: #8C7A5E;
+  --c-brazier: #E0702A;
+  --c-tomb: #6E6280;
+  --c-altar: #D0405A;
+  --c-whisper: #B39DFF;
+  --c-path: rgba(196, 97, 15, 0.45);
+  --f-body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111418; --panel: #191D22; --ink: #E6E9ED; --ink-soft: #97A1AD; --line: #2B3139;
+    --accent: #F0913F; --accent-ink: #1E0E00; --ok: #4CC495; --bad: #FF8A80; --canvas: #0B0D10;
+    --c-wall: #4A515C; --c-floor: #1E2227; --c-path: rgba(240, 145, 63, 0.5);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111418; --panel: #191D22; --ink: #E6E9ED; --ink-soft: #97A1AD; --line: #2B3139;
+  --accent: #F0913F; --accent-ink: #1E0E00; --ok: #4CC495; --bad: #FF8A80; --canvas: #0B0D10;
+  --c-wall: #4A515C; --c-floor: #1E2227; --c-path: rgba(240, 145, 63, 0.5);
+  color-scheme: dark;
+}
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 14px; }
+.app { height: 100%; width: 100%; max-width: 100vw; overflow: hidden; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; grid-template-columns: 300px minmax(0, 1fr); grid-template-areas: "top top" "side main" "side status"; }
+header { grid-area: top; min-width: 0; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding-inline: 16px; padding-block: 10px; background: var(--panel); border-bottom: 1px solid var(--line); }
+header h1 { font-size: 17px; margin: 0 auto 0 0; white-space: nowrap; }
+header button { white-space: nowrap; }
+html, body { max-width: 100%; overflow-x: hidden; }
+@media (max-width: 760px) { .app { grid-template-columns: 240px minmax(0, 1fr); } }
+header h1 span { color: var(--accent); }
+aside { grid-area: side; overflow-y: auto; background: var(--panel); border-right: 1px solid var(--line); padding-inline: 16px; padding-block: 8px 24px; }
+main { grid-area: main; position: relative; min-width: 0; min-height: 0; background: var(--canvas); }
+#cv { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; display: block; }
+.status { grid-area: status; min-width: 0; display: flex; gap: 18px; flex-wrap: wrap; padding-inline: 16px; padding-block: 6px; background: var(--panel); border-top: 1px solid var(--line); font-family: var(--f-mono); font-size: 12px; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+
+section { border-bottom: 1px solid var(--line); padding-block: 14px; }
+section:last-child { border-bottom: 0; }
+h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-soft); margin: 0 0 10px; }
+.row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 8px; }
+label { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--ink-soft); }
+input[type="text"], input[type="number"], textarea {
+  font: inherit; font-size: 14px; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; min-width: 0;
+}
+input:focus-visible, textarea:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.check { flex-direction: row; align-items: center; gap: 8px; color: var(--ink); font-size: 13px; }
+button { font: inherit; font-weight: 700; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 7px 10px; cursor: pointer; }
+button:hover { border-color: var(--ink-soft); }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+button:disabled { opacity: 0.45; cursor: default; }
+.full { width: 100%; }
+.seed { display: grid; grid-template-columns: 1fr auto; gap: 6px; align-items: end; }
+
+.sw-w { display: grid; place-items: center; width: 24px; height: 24px; background: #1D2027; color: var(--c-whisper); font-size: 16px; font-weight: 700; border-radius: 4px; }
+.tool .sw.tile { width: 24px; height: 24px; box-sizing: content-box; border-radius: 4px; }
+.tgroup + .tgroup { margin-top: 10px; }
+.toolinfo { margin-top: 12px; padding: 10px 12px; border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 8px; font-size: 13px; line-height: 1.45; }
+.toolinfo b { display: block; margin-bottom: 3px; }
+.toolinfo p { margin: 0; color: var(--ink-soft); }
+.tgroup h3 { margin: 0 0 5px; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-soft); }
+.tools { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.tool { display: flex; align-items: center; gap: 6px; font-weight: 400; font-size: 13px; padding: 6px 8px; }
+.tool[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); font-weight: 700; }
+.sw { width: 14px; height: 14px; border-radius: 3px; flex: none; border: 1px solid var(--line); }
+.tool kbd { margin-left: auto; font-family: var(--f-mono); font-size: 11px; color: var(--ink-soft); }
+.small { font-size: 12px; color: var(--ink-soft); line-height: 1.45; margin: 8px 0 0; }
+
+.checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.checks li { display: grid; grid-template-columns: 16px 1fr; gap: 6px; line-height: 1.4; }
+.checks .ok { color: var(--ok); }
+.checks .bad { color: var(--bad); }
+.stats { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; margin: 10px 0 0; font-size: 13px; }
+.stats dt { color: var(--ink-soft); }
+.stats dd { margin: 0; font-family: var(--f-mono); font-variant-numeric: tabular-nums; text-align: right; }
+textarea { width: 100%; box-sizing: border-box; height: 180px; font-family: var(--f-mono); font-size: 11px; line-height: 1.2; white-space: pre; overflow: auto; resize: vertical; }
+.zoom { position: absolute; right: 12px; bottom: 12px; display: flex; gap: 6px; }
+.zoom button { background: var(--panel); min-width: 36px; }
+.toast { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 7px 12px; border-radius: 6px; font-size: 13px; pointer-events: none; transition: opacity 300ms; }
+
+@media (max-width: 760px) {
+  .app { grid-template-columns: 1fr; grid-template-rows: auto 58vh auto auto; grid-template-areas: "top" "main" "status" "side"; height: auto; min-height: 100%; }
+  aside { border-right: 0; border-top: 1px solid var(--line); overflow: visible; }
+}
+/* share with the community: dialog */
+dialog { border: 1px solid var(--line); border-radius: 10px; background: var(--panel); color: var(--ink); width: min(460px, calc(100vw - 32px)); padding: 18px 20px; }
+dialog::backdrop { background: rgba(0, 0, 0, 0.45); }
+dialog h2 { font-size: 16px; margin: 0 0 10px; }
+dialog ol { margin: 12px 0 0; padding-left: 20px; line-height: 1.5; }
+dialog input { width: 100%; }
+.dlg-row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+</style>
+
+<div class="app">
+  <header>
+    <h1>Editor di <span>Lanterna</span></h1>
+    <button id="undo" type="button" title="Ctrl+Z">Annulla</button>
+    <button id="openBtn" type="button">Apri file…</button>
+    <input id="openFile" type="file" accept=".txt,text/plain" hidden>
+    <button id="copy" type="button">Copia testo</button>
+    <button id="saveAs" type="button" title="Salva in un altro file (Ctrl/Cmd+Maiusc+S)">Salva come…</button>
+    <button id="save" class="primary" type="button" title="Ctrl/Cmd+S">Salva</button>
+  </header>
+
+  <aside>
+    <section>
+      <h2>Genera un labirinto</h2>
+      <div class="row">
+        <label for="gw">Larghezza<input id="gw" type="number" min="7" max="401" step="2" value="41"></label>
+        <label for="gh">Altezza<input id="gh" type="number" min="7" max="401" step="2" value="41"></label>
+      </div>
+      <div class="row">
+        <label for="gbraid">Anelli (%)<input id="gbraid" type="number" min="0" max="100" step="5" value="10"></label>
+        <label for="ggems">Gemme<input id="ggems" type="number" min="0" max="200" value="3"></label>
+      </div>
+      <div class="row">
+        <label for="genemies">Ombre<input id="genemies" type="number" min="0" max="500" value="3"></label>
+        <label for="gfires">Falò<input id="gfires" type="number" min="0" max="100" value="2"></label>
+      </div>
+      <div class="seed">
+        <label for="gseed">Seme<input id="gseed" type="text" value="lanterna"></label>
+        <button id="dice" type="button" title="Seme casuale">Casuale</button>
+      </div>
+      <div class="row" style="margin: 10px 0 0">
+        <button id="gen" class="primary" type="button">Genera</button>
+        <button id="blank" type="button">Nuovo vuoto</button>
+      </div>
+      <p class="small">Le misure diventano dispari. Con lo stesso seme esce sempre lo stesso labirinto. Gli anelli aprono alcuni vicoli ciechi e creano più strade possibili. Le gemme finiscono di preferenza in fondo ai vicoli ciechi. Le Ombre stanno ad almeno 12 passi dalla partenza, i falò sono distribuiti lungo il percorso più breve.</p>
+    </section>
+
+    <section>
+      <h2>Livello</h2>
+      <label for="lname" style="margin-bottom: 8px">Nome<input id="lname" type="text" value=""></label>
+      <div class="row">
+        <label for="ltorch">Lanterna (caselle)<input id="ltorch" type="number" min="1" max="10" value="3"></label>
+        <label for="lpar">Par (passi)<input id="lpar" type="number" min="1" value=""></label>
+      </div>
+      <label for="lspeed" style="margin-bottom: 8px">Velocità Ombre (secondi a casella)<input id="lspeed" type="number" min="0.1" max="3" step="0.05" placeholder="0.7 (predefinita)"></label>
+      <label class="check" for="lparAuto"><input id="lparAuto" type="checkbox" checked> Par uguale al percorso più breve</label>
+    </section>
+
+    <section>
+      <h2>Disegna</h2>
+      <div id="tools">
+        <div class="tgroup"><h3>Strumento</h3><div class="tools">
+          <button class="tool" type="button" data-t="pan" aria-pressed="false">✋ Sposta <kbd>0</kbd></button>
+        </div></div>
+        <div class="tgroup"><h3>Struttura</h3><div class="tools">
+          <button class="tool" type="button" data-t="#" aria-pressed="true"><span class="sw" style="background: var(--c-wall)"></span>Muro <kbd>1</kbd></button>
+          <button class="tool" type="button" data-t="." aria-pressed="false"><span class="sw" style="background: var(--c-floor)"></span>Pavim. <kbd>2</kbd></button>
+          <button class="tool" type="button" data-t="S" aria-pressed="false"><span class="sw" style="background: var(--c-start)"></span>Partenza <kbd>3</kbd></button>
+          <button class="tool" type="button" data-t="E" aria-pressed="false"><span class="sw" style="background: var(--c-exit)"></span>Uscita <kbd>4</kbd></button>
+        </div></div>
+        <div class="tgroup"><h3>Nemici</h3><div class="tools">
+          <button class="tool" type="button" data-t="M" aria-pressed="false"><span class="sw" style="background: var(--c-enemy)"></span>Ombra <kbd>6</kbd></button>
+          <button class="tool" type="button" data-t="H" aria-pressed="false"><span class="sw" style="background: var(--c-hunter)"></span>Cacciatrice <kbd>9</kbd></button>
+          <button class="tool" type="button" data-t="X" aria-pressed="false" title="Dove sorge il Guardiano alla fine delle ondate (solo nelle cripte col Guardiano, non in quelle segrete). I colpi per liberarlo: riga guardian: nell'intestazione."><span class="sw" style="background: var(--c-altar)"></span>Guardiano <kbd>X</kbd></button>
+        </div></div>
+        <div class="tgroup"><h3>Oggetti da raccogliere</h3><div class="tools">
+          <button class="tool" type="button" data-t="*" aria-pressed="false"><span class="sw" style="background: var(--c-gem)"></span>Gemma <kbd>5</kbd></button>
+          <button class="tool" type="button" data-t="K" aria-pressed="false"><span class="sw" style="background: var(--c-key)"></span>Chiave <kbd>8</kbd></button>
+          <button class="tool" type="button" data-t="V" aria-pressed="false"><span class="sw" style="background: var(--c-fireball)"></span>Fiamma viva <kbd>V</kbd></button>
+          <button class="tool" type="button" data-t="L" aria-pressed="false"><span class="sw" style="background: var(--c-lure)"></span>Lucciole <kbd>L</kbd></button>
+        </div></div>
+        <div class="tgroup"><h3>Luci</h3><div class="tools">
+          <button class="tool" type="button" data-t="F" aria-pressed="false"><span class="sw" style="background: var(--c-fire)"></span>Falò <kbd>7</kbd></button>
+          <button class="tool" type="button" data-t="C" aria-pressed="false"><span class="sw" style="background: var(--c-crystal)"></span>Cristallo <kbd>C</kbd></button>
+        </div></div>
+        <div class="tgroup"><h3>Cripta</h3><div class="tools">
+          <button class="tool" type="button" data-t="R" aria-pressed="false"><span class="sw" style="background: var(--c-crypt)"></span>Cripta <kbd>R</kbd></button>
+          <button class="tool" type="button" data-t="G" aria-pressed="false"><span class="sw" style="background: var(--c-gate)"></span>Porta cripta <kbd>G</kbd></button>
+          <button class="tool" type="button" data-t="B" aria-pressed="false"><span class="sw" style="background: var(--c-brazier)"></span>Braciere <kbd>B</kbd></button>
+          <button class="tool" type="button" data-t="T" aria-pressed="false"><span class="sw" style="background: var(--c-tomb)"></span>Tomba <kbd>T</kbd></button>
+        </div></div>
+        <div class="tgroup"><h3>Effetti sonori</h3><div class="tools">
+          <button class="tool" type="button" data-t="W" aria-pressed="false"><span class="sw sw-w">≋</span>Sussurro <kbd>W</kbd></button>
+          <button class="tool" type="button" data-t="Z" aria-pressed="false"><span class="sw sw-w">≋</span>Sssh <kbd>Z</kbd></button>
+          <button class="tool" type="button" data-t="P" aria-pressed="false"><span class="sw sw-w">≋</span>Parola sussurrata <kbd>P</kbd></button>
+          <button class="tool" type="button" data-t="A" aria-pressed="false"><span class="sw sw-w">≋</span>Respiro alle spalle <kbd>A</kbd></button>
+          <button class="tool" type="button" data-t="D" aria-pressed="false"><span class="sw sw-w">≋</span>Sussurro lontano <kbd>D</kbd></button>
+          <button class="tool" type="button" data-t="N" aria-pressed="false"><span class="sw sw-w">≋</span>Coro di sussurri <kbd>N</kbd></button>
+        </div></div>
+      </div>
+      <div class="toolinfo" id="toolInfo" aria-live="polite"><b id="toolInfoName"></b><p id="toolInfoTxt"></p><button id="toolListen" type="button" hidden style="margin-top:8px">▶ Ascolta</button></div>
+      <label class="check" for="showPath" style="margin-top: 10px"><input id="showPath" type="checkbox"> Mostra il percorso più breve</label>
+      <label class="check" for="showTiles"><input id="showTiles" type="checkbox" checked> Grafica del gioco (da vicino)</label>
+      <p class="small">Clic o trascina per disegnare. Per spostare la vista: strumento Sposta, barra spaziatrice + trascina, tasto destro, rotellina o due dita. Per lo zoom: Ctrl + rotellina, pizzico o i tasti in basso a destra.</p>
+    </section>
+
+    <section>
+      <h2>Controllo</h2>
+      <ul class="checks" id="checks"></ul>
+      <dl class="stats" id="stats"></dl>
+    </section>
+
+    <section>
+      <h2>File</h2>
+      <label for="fname" style="margin-bottom: 8px">Nome del file<input id="fname" type="text" value="07.txt"></label>
+      <p class="small" style="margin: 0 0 8px">Salva il labirinto sul tuo computer con <b>Salva</b>. Per farlo arrivare agli altri giocatori usa <b>Condividi con la community</b> qui sotto.</p>
+      <label for="text">Testo del file<textarea id="text" spellcheck="false" wrap="off"></textarea></label>
+      <button id="fromText" class="full" type="button" style="margin-top: 6px">Carica dal testo</button>
+    </section>
+    <section>
+      <h2>Community</h2>
+      <p class="small" style="margin: 0 0 8px">Proponi il tuo labirinto per la raccolta dei giocatori su GitHub. Serve un account GitHub (è gratis).</p>
+      <button id="share" class="full" type="button">Condividi con la community</button>
+    </section>
+  </aside>
+  <dialog id="shareDlg" aria-labelledby="shareTitle">
+    <form method="dialog">
+      <h2 id="shareTitle">Condividi con la community</h2>
+      <label for="shareName">Nome del file<input id="shareName" type="text" autocomplete="off" spellcheck="false"></label>
+      <p class="small">Solo lettere minuscole, numeri e trattini. Diventa <b id="sharePath"></b>.</p>
+      <ol class="small">
+        <li>Si apre GitHub con il labirinto già pronto. Accedi o crea un account.</li>
+        <li>Se il testo non c'è, incollalo (Ctrl+V o Cmd+V): l'editor l'ha già copiato.</li>
+        <li>Premi <b>Commit changes…</b> → <b>Propose changes</b> → <b>Create pull request</b>. GitHub fa da solo una tua copia del progetto.</li>
+        <li>Un controllo automatico prova il labirinto, poi il proprietario lo approva.</li>
+      </ol>
+      <div class="dlg-row"><button value="cancel" type="submit">Annulla</button><button id="shareGo" class="primary" type="button">Apri GitHub</button></div>
+    </form>
+  </dialog>
+
+  <main>
+    <canvas id="cv" aria-label="Labirinto da modificare"></canvas>
+    <div class="zoom">
+      <button id="zout" type="button" aria-label="Riduci">−</button>
+      <button id="zfit" type="button">Adatta</button>
+      <button id="zin" type="button" aria-label="Ingrandisci">+</button>
+    </div>
+    <div class="toast" id="toast" style="opacity: 0"></div>
+  </main>
+
+  <div class="status"><span id="stSize">–</span><span id="stPos">–</span><span id="stZoom">–</span></div>
+</div>
+
+<script src="maze.js"></script>
+<script src="whispers.js"></script>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem('lanterna-editor.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+    set(k, v) { try { localStorage.setItem('lanterna-editor.' + k, JSON.stringify(v)); } catch (e) {} }
+  };
+
+  /* ---------- state ---------- */
+  let grid = [];        // array of arrays of chars
+  let W = 0, H = 0;
+  let tool = '#';
+  let parsed = null, path = [];
+  const undoStack = [];
+
+  const rowsOf = () => grid.map(r => r.join(''));
+  function pushUndo() {
+    undoStack.push(JSON.stringify({ rows: rowsOf(), name: $('lname').value, torch: $('ltorch').value }));
+    if (undoStack.length > 40) undoStack.shift();
+    $('undo').disabled = false;
+  }
+  function undo() {
+    const s = undoStack.pop();
+    if (!s) return;
+    const o = JSON.parse(s);
+    setRows(o.rows, false); $('lname').value = o.name; $('ltorch').value = o.torch;
+    $('undo').disabled = !undoStack.length;
+    changed();
+  }
+
+  function setRows(rows, fit = true) {
+    H = rows.length; W = Math.max(...rows.map(r => r.length), 1);
+    grid = rows.map(r => (r + '#'.repeat(W - r.length)).split(''));
+    if (fit) fitView();
+  }
+
+  /* ---------- text <-> level ---------- */
+  let firstRowLine = 5; // line of the file where the drawing starts
+  function currentText() {
+    const lvTmp = Maze.parseLevel(Maze.serialize({ name: 'x', torch: 1, par: 1, rows: rowsOf() }));
+    const par = $('lparAuto').checked ? (lvTmp.shortest ?? null) : (parseInt($('lpar').value, 10) || null);
+    const sp = parseFloat(String($('lspeed').value).replace(',', '.'));
+    return Maze.serialize({ name: $('lname').value.trim() || null, torch: parseInt($('ltorch').value, 10) || 3, par, speed: Number.isFinite(sp) ? sp : null, extra: extraHeader, rows: rowsOf() });
+  }
+
+  let pending = null;
+  function changed() {
+    draw();
+    clearTimeout(pending);
+    pending = setTimeout(validate, 120);
+  }
+
+  function validate() {
+    const text = currentText();
+    firstRowLine = text.split('\n').indexOf('---') + 2;
+    parsed = Maze.parseLevel(text);
+    if ($('lparAuto').checked) $('lpar').value = parsed.shortest ?? '';
+    $('lpar').disabled = $('lparAuto').checked;
+    path = parsed.errors.length ? [] : Maze.shortestPath(parsed);
+    const st = Maze.stats(parsed);
+    const items = [];
+    if (!parsed.errors.length) items.push(['ok', '✓', 'Livello valido: il gioco lo può caricare.']);
+    parsed.errors.forEach(e => items.push(['bad', '✕', (e.line ? `Riga ${e.line}: ` : '') + e.msg]));
+    const borderOpen = grid.some((r, y) => r.some((c, x) => (x === 0 || y === 0 || x === W - 1 || y === H - 1) && c !== '#'));
+    (parsed.warnings || []).forEach(e => items.push(['bad', '!', (e.line ? `Riga ${e.line}: ` : '') + e.msg]));
+    if (borderOpen) items.push(['bad', '!', 'Il bordo esterno ha dei buchi. Il gioco li tratta come muro, ma è meglio chiuderli.']);
+    $('checks').innerHTML = items.map(([c, i, t]) => `<li class="${c}"><span>${i}</span><span></span></li>`).join('');
+    [...$('checks').children].forEach((li, i) => li.lastChild.textContent = items[i][2]);
+    const fmt = n => n == null ? '–' : n.toLocaleString('it-IT');
+    $('stats').innerHTML = [
+      ['Dimensioni', `${W} × ${H}`],
+      ['Percorso più breve', fmt(parsed.shortest) + ' passi'],
+      ['Caselle libere', fmt(st.floor)],
+      ['Vicoli ciechi', fmt(st.deadEnds)],
+      ['Incroci', fmt(st.junctions)],
+      ['Gemme', fmt(parsed.gems)],
+      ['Ombre', fmt(st.enemies) + (st.enemies ? ` · ${String(parsed.speed).replace('.', ',')} s/casella` : '')],
+      ['Falò', fmt(st.fires)],
+    ].map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join('');
+    $('text').value = text;
+    $('stSize').textContent = `${W} × ${H}`;
+    store.set('draft', { extra: extraHeader, rows: rowsOf(), name: $('lname').value, torch: $('ltorch').value, speed: $('lspeed').value, parAuto: $('lparAuto').checked, par: $('lpar').value, fname: $('fname').value });
+    draw();
+  }
+
+  let extraHeader = [];   // tip / flash lines of the loaded file, written back unchanged
+  function loadText(text) {
+    const lv = Maze.parseLevel(text);
+    if (!lv.rows.length) { toast('Il testo non contiene un labirinto.'); return; }
+    pushUndo();
+    setRows(lv.rows);
+    extraHeader = lv.extraLines || [];
+    $('lname').value = lv.meta.name || '';
+    $('ltorch').value = lv.meta.torch || 3;
+    $('lspeed').value = lv.meta.speed || '';
+    const auto = !lv.meta.par || parseInt(lv.meta.par, 10) === lv.shortest;
+    $('lparAuto').checked = auto;
+    if (!auto) $('lpar').value = lv.meta.par;
+    changed();
+    toast(lv.errors.length ? 'Caricato, ma ci sono errori: guarda il Controllo.' : 'Livello caricato.');
+  }
+
+  /* ---------- view ---------- */
+  const cv = $('cv'), ctx = cv.getContext('2d');
+  let CW = 0, CH = 0, DPR = 1;
+  let zoom = 12, panX = 0, panY = 0;   // screen = pan + cell * zoom
+  function resize() {
+    DPR = Math.min(2, window.devicePixelRatio || 1);
+    CW = cv.clientWidth; CH = cv.clientHeight;
+    cv.width = Math.round(CW * DPR); cv.height = Math.round(CH * DPR);
+    draw();
+  }
+  new ResizeObserver(resize).observe(cv);
+  function fitView() {
+    if (!CW) { CW = cv.clientWidth; CH = cv.clientHeight; }
+    zoom = Math.max(1, Math.min(48, Math.min((CW - 32) / W, (CH - 32) / H)));
+    panX = (CW - W * zoom) / 2; panY = (CH - H * zoom) / 2;
+    draw();
+  }
+  function zoomAt(f, sx, sy) {
+    const nz = Math.max(1, Math.min(64, zoom * f));
+    panX = sx - (sx - panX) * nz / zoom; panY = sy - (sy - panY) * nz / zoom;
+    zoom = nz; draw();
+  }
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  let colors = {};
+  function readColors() { colors = { '#': css('--c-wall'), '.': css('--c-floor'), S: css('--c-start'), E: css('--c-exit'), '*': css('--c-gem'), M: css('--c-enemy'), F: css('--c-fire'), K: css('--c-key'), H: css('--c-hunter'), V: css('--c-fireball'), L: css('--c-lure'), C: css('--c-crystal'), R: css('--c-crypt'), G: css('--c-gate'), B: css('--c-brazier'), T: css('--c-tomb'), X: css('--c-altar'), W: css('--c-whisper'), path: css('--c-path'), bg: css('--canvas'), line: css('--line') }; }
+  readColors();
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { readColors(); draw(); });
+  new MutationObserver(() => { readColors(); draw(); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+  // the game's own tiles (tiles.png: captured from the game, 64 px each, in this order)
+  const TILE_ORDER = '#.SE*MHFKVLCRGBTX', TILE_PX = 64;
+  const tilesImg = new Image(); let tilesReady = false;
+  tilesImg.onload = () => { tilesReady = true; draw(); };
+  tilesImg.src = 'tiles.png';
+  $('showTiles').addEventListener('change', draw);
+  $('toolListen').addEventListener('click', () => whisper(tool));
+  document.querySelectorAll('.tool[data-t] .sw').forEach(sw => {   // tool buttons show the real tile
+    const i = TILE_ORDER.indexOf(sw.closest('.tool').dataset.t);
+    if (i >= 0) { sw.classList.add('tile'); sw.style.background = `url(tiles.png) ${i / (TILE_ORDER.length - 1) * 100}% 0 / ${TILE_ORDER.length * 100}% 100% no-repeat`; }
+  });
+  const useTiles = () => tilesReady && $('showTiles').checked && zoom >= 10;
+  // sound effect cell: invisible in the game, marked here with violet sound waves
+  const SOUND = Maze.SOUND_CELLS;   // W Z P A D N
+  function drawWhisperMark(x, y, z, c) {
+    const cx = panX + (x + 0.5) * z, cy = panY + (y + 0.5) * z;
+    ctx.strokeStyle = colors.W; ctx.lineWidth = Math.max(1, z * 0.07); ctx.lineCap = 'round';
+    if (z < 6) { ctx.fillStyle = colors.W; ctx.fillRect(cx - z * 0.3, cy - z * 0.3, z * 0.6, z * 0.6); return; }
+    for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.arc(cx - z * 0.3, cy, z * (0.12 + i * 0.1), -0.7, 0.7); ctx.stroke(); }
+    if (z >= 12) {   // the letter, to tell the sounds apart
+      ctx.fillStyle = colors.W; ctx.font = `700 ${Math.round(z * 0.38)}px ui-monospace, Menlo, monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(c, cx + z * 0.24, cy);
+    }
+  }
+  let raf = 0;
+  function draw() { if (!raf) raf = requestAnimationFrame(() => { raf = 0; paint(); }); }
+  function paint() {
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    ctx.fillStyle = colors.bg; ctx.fillRect(0, 0, CW, CH);
+    if (!W) return;
+    const x0 = Math.max(0, Math.floor(-panX / zoom)), x1 = Math.min(W - 1, Math.ceil((CW - panX) / zoom));
+    const y0 = Math.max(0, Math.floor(-panY / zoom)), y1 = Math.min(H - 1, Math.ceil((CH - panY) / zoom));
+    const z = zoom, pad = z >= 6 ? 0 : 0.5;
+    const tiles = useTiles();
+    if (tiles) ctx.imageSmoothingEnabled = true;
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+      const c = grid[y][x];
+      if (tiles) {
+        const i = SOUND.includes(c) ? 1 : Math.max(0, TILE_ORDER.indexOf(c));
+        ctx.drawImage(tilesImg, i * TILE_PX, 0, TILE_PX, TILE_PX, panX + x * z, panY + y * z, z + 0.5, z + 0.5);
+        if (SOUND.includes(c)) drawWhisperMark(x, y, z, c);
+        continue;
+      }
+      if (SOUND.includes(c)) { ctx.fillStyle = colors['.']; ctx.fillRect(panX + x * z, panY + y * z, z + pad, z + pad); drawWhisperMark(x, y, z, c); continue; }
+      ctx.fillStyle = colors[c] || colors['.'];
+      if (c === '*' || c === 'M' || c === 'F' || c === 'K' || c === 'H' || c === 'V' || c === 'L') { ctx.fillStyle = colors['.']; }
+      ctx.fillRect(panX + x * z, panY + y * z, z + pad, z + pad);
+      if (c === '*') {
+        const cx = panX + (x + 0.5) * z, cy = panY + (y + 0.5) * z, r = Math.max(1.5, z * 0.35);
+        ctx.fillStyle = colors['*'];
+        ctx.beginPath(); ctx.moveTo(cx, cy - r); ctx.lineTo(cx + r, cy); ctx.lineTo(cx, cy + r); ctx.lineTo(cx - r, cy); ctx.fill();
+      }
+      if (c === 'K') {                     // key: a small golden square with a hole
+        const cx = panX + (x + 0.5) * z, cy = panY + (y + 0.5) * z, r = Math.max(1.5, z * 0.38);
+        ctx.fillStyle = colors.K; ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+        if (z >= 6) { ctx.fillStyle = colors['.']; ctx.fillRect(cx - r * 0.35, cy - r * 0.35, r * 0.7, r * 0.7); }
+      }
+      if (c === 'V' || c === 'L') {        // living flame / firefly jar: a small square with a dot
+        const cx = panX + (x + 0.5) * z, cy = panY + (y + 0.5) * z, r = Math.max(1.5, z * 0.32);
+        ctx.fillStyle = colors[c]; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+        if (z >= 6) { ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(cx, cy, r * 0.35, 0, Math.PI * 2); ctx.fill(); }
+      }
+      if (c === 'M' || c === 'F' || c === 'H') {
+        const cx = panX + (x + 0.5) * z, cy = panY + (y + 0.5) * z, r = Math.max(1.5, z * 0.4);
+        ctx.fillStyle = colors[c];
+        ctx.beginPath();
+        if (c === 'M' || c === 'H') ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        else { ctx.moveTo(cx, cy - r); ctx.lineTo(cx + r * 0.8, cy + r * 0.8); ctx.lineTo(cx - r * 0.8, cy + r * 0.8); }
+        ctx.fill();
+      }
+    }
+    if ($('showPath').checked && path.length) {
+      ctx.fillStyle = colors.path;
+      for (const p of path) if (p.x >= x0 && p.x <= x1 && p.y >= y0 && p.y <= y1) {
+        const m = z * 0.3; ctx.fillRect(panX + p.x * z + m, panY + p.y * z + m, z - 2 * m, z - 2 * m);
+      }
+    }
+    if (z >= 10) {
+      ctx.strokeStyle = colors.line; ctx.globalAlpha = 0.35; ctx.lineWidth = 1; ctx.beginPath();
+      for (let x = x0; x <= x1 + 1; x++) { const sx = Math.round(panX + x * z) + 0.5; ctx.moveTo(sx, panY + y0 * z); ctx.lineTo(sx, panY + (y1 + 1) * z); }
+      for (let y = y0; y <= y1 + 1; y++) { const sy = Math.round(panY + y * z) + 0.5; ctx.moveTo(panX + x0 * z, sy); ctx.lineTo(panX + (x1 + 1) * z, sy); }
+      ctx.stroke(); ctx.globalAlpha = 1;
+    }
+    // S and E markers stay visible even when zoomed out
+    [['S', parsed && parsed.start], ['E', parsed && parsed.exit]].forEach(([k, p]) => {
+      if (!p || z >= 6) return;
+      ctx.strokeStyle = colors[k]; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(panX + (p.x + 0.5) * z, panY + (p.y + 0.5) * z, 7, 0, Math.PI * 2); ctx.stroke();
+    });
+    $('stZoom').textContent = `zoom ${Math.round(zoom * 10) / 10} px/casella`;
+  }
+
+  /* ---------- editing ---------- */
+  function cellFromEvent(e) {
+    const r = cv.getBoundingClientRect();
+    const x = Math.floor((e.clientX - r.left - panX) / zoom), y = Math.floor((e.clientY - r.top - panY) / zoom);
+    return (x >= 0 && y >= 0 && x < W && y < H) ? { x, y } : null;
+  }
+  function paintCell(p, first) {
+    if (!p) return false;
+    const cur = grid[p.y][p.x];
+    let v = tool;
+    if (('*MFKHVL' + SOUND).includes(tool) && first && cur === tool) v = '.';
+    if (cur === v) return false;
+    if (tool === 'S' || tool === 'E' || tool === 'K') {      // only one start, one exit, one key
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (grid[y][x] === tool) grid[y][x] = '.';
+    }
+    grid[p.y][p.x] = v;
+    return true;
+  }
+
+  const pointers = new Map();
+  let mode = null, last = null, spaceDown = false, pinch = null, dirty = false;
+  cv.addEventListener('contextmenu', e => e.preventDefault());
+  cv.addEventListener('pointerdown', e => {
+    cv.setPointerCapture(e.pointerId);
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.size === 2) {
+      if (mode === 'paint' && dirty) { changed(); }
+      mode = 'pinch';
+      const [a, b] = [...pointers.values()];
+      pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2 };
+      return;
+    }
+    last = { x: e.clientX, y: e.clientY };
+    if (tool === 'pan' || spaceDown || e.button === 1 || e.button === 2) { mode = 'pan'; cv.style.cursor = 'grabbing'; return; }
+    mode = 'paint'; dirty = false;
+    pushUndo();
+    if (paintCell(cellFromEvent(e), true)) { dirty = true; draw(); }
+    if ('SE*MFHVL'.includes(tool)) mode = null;
+    if (dirty) changed(); else if (mode === null) undoStack.pop();
+  });
+  cv.addEventListener('pointermove', e => {
+    const p = cellFromEvent(e);
+    $('stPos').textContent = p ? `colonna ${p.x + 1}, riga ${p.y + 1} del disegno (riga ${p.y + firstRowLine} del file)` : '–';
+    if (!pointers.has(e.pointerId)) return;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (mode === 'pinch' && pointers.size === 2) {
+      const [a, b] = [...pointers.values()];
+      const d = Math.hypot(a.x - b.x, a.y - b.y), cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2;
+      const r = cv.getBoundingClientRect();
+      panX += cx - pinch.cx; panY += cy - pinch.cy;
+      zoomAt(d / pinch.d, cx - r.left, cy - r.top);
+      pinch = { d, cx, cy };
+      return;
+    }
+    if (mode === 'pan') { panX += e.clientX - last.x; panY += e.clientY - last.y; last = { x: e.clientX, y: e.clientY }; draw(); return; }
+    if (mode === 'paint' && paintCell(p, false)) { dirty = true; draw(); }
+  });
+  const endPointer = e => {
+    pointers.delete(e.pointerId);
+    if (mode === 'paint') { if (dirty) changed(); else undoStack.pop(); }
+    if (pointers.size === 0) { mode = null; cv.style.cursor = ''; }
+    $('undo').disabled = !undoStack.length;
+  };
+  cv.addEventListener('pointerup', endPointer);
+  cv.addEventListener('pointercancel', endPointer);
+  cv.addEventListener('wheel', e => {
+    e.preventDefault();
+    const r = cv.getBoundingClientRect();
+    if (e.ctrlKey || e.metaKey) zoomAt(Math.exp(-e.deltaY * 0.01), e.clientX - r.left, e.clientY - r.top);
+    else { panX -= e.deltaX; panY -= e.deltaY; draw(); }
+  }, { passive: false });
+
+  // what each tool does (shown under the buttons for the chosen tool, and while hovering a button)
+  const TOOL_INFO = {"pan": ["Sposta", "Trascina per muovere la vista. Anche: barra spaziatrice + trascina, tasto destro o due dita."], "#": ["Muro", "Blocca il passaggio e la luce. Il labirinto deve essere chiuso da muri tutto intorno."], ".": ["Pavimento", "Casella libera dove si cammina. Cliccando su un oggetto con lo stesso strumento lo togli."], "S": ["Partenza", "Dove inizia Scintilla. Una sola per livello: se ne metti un'altra, la vecchia sparisce. Non è un punto di salvataggio."], "E": ["Uscita", "Il livello finisce qui. Una sola per livello. Se c'è una chiave, l'uscita resta chiusa finché non la prendi. Le caselle attorno sono visibili fin dall'inizio."], "M": ["Ombra", "Nemico base: dorme finché la luce della lanterna non la raggiunge, poi ti insegue. Al buio ti perde e si ferma. Si libera con un colpo di luce: lampo, falò, fiamma viva o lucciole. Velocità: riga speed: (0,7 s/casella). Con roam: N le Ombre addormentate vagano piano attorno al nido."], "H": ["Cacciatrice", "Ombra veloce (0,6 s/casella): una volta sveglia ti segue sempre, anche al buio, ma al buio non può prenderti. Per liberarla servono 2 colpi di luce. Consigliata dal livello 5 in poi."], "X": ["Guardiano", "Il boss delle cripte: sorge da qui dopo l'ultima ondata. Solo nelle cripte col Guardiano (non in quelle segrete). Colpi per liberarlo: riga guardian: (es. 3). Quando lo liberi lascia la chiave dell'uscita: non mettere la K nel disegno. Evita i bracieri accesi e fa uno scatto se ti vede in linea retta."], "*": ["Gemma", "Ogni gemma vale un lampo in più per il livello. Conta anche per le stelle e il punteggio. La falena (compagno) indica quelle vicine."], "K": ["Chiave", "Facoltativa, al massimo una. Se c'è, l'uscita resta chiusa finché Scintilla non la raccoglie; il percorso più breve diventa partenza → chiave → uscita."], "V": ["Fiamma viva", "Oggetto da raccogliere: finisce nello zaino (max 5). Si lancia dove guardi: vola 5 caselle, illumina e brucia per 15 s liberando le Ombre che ci passano. Ottima in un corridoio dritto."], "L": ["Barattolo di lucciole", "Oggetto da raccogliere: finisce nello zaino (max 5). Posato a terra incanta le Ombre vicine per 15 s, poi esplode e le colpisce. Utile per svuotare una sala piena di Ombre."], "F": ["Falò", "Si accende passandoci sopra e diventa il punto da cui ripartire se ti prendono. Acceso, colpisce le Ombre che ci passano sopra o accanto. Alla prima accensione si legge una pagina del diario (se il livello ha diary:)."], "C": ["Cristallo", "Blocca il passaggio come un muro. Quando la luce della lanterna lo tocca si accende per sempre e illumina le caselle entro 2 di distanza, anche a lanterna spenta. Le Ombre addormentate in quella luce aprono gli occhi e ti inseguono appena ti vedono; le cacciatrici si svegliano subito."], "R": ["Pavimento della cripta", "Le caselle della sala. Entrando le porte si chiudono e partono le ondate (riga waves:, es. 3 oppure 3, 3+1 = Ombre + cacciatrici). Con crypt: bonus è una cripta segreta facoltativa: niente Guardiano, premio reward: lampi + un oggetto. Ogni stanza separata è una cripta a sé."], "G": ["Porta della cripta", "L'ingresso della sala: si chiude quando entri e si riapre quando la cripta è vinta. Ogni cripta ne vuole almeno una."], "B": ["Braciere", "Si accende passandoci sopra durante la lotta e colpisce le Ombre che passano accanto. Contro il Guardiano: lo colpisce una volta e poi si spegne."], "T": ["Tomba", "Da qui escono le Ombre delle ondate. Ogni cripta ne vuole almeno una (meglio due o più, distanti)."]};
+  const SOUND_NOTE = ' Casella invisibile nel gioco (si cammina come pavimento): il suono parte quando Scintilla ci passa sopra o accanto, una sola volta per livello. Mettilo prima di un nido di Ombre, in un vicolo cieco o vicino a una cripta segreta.';
+  for (const [k, [name, desc]] of Object.entries(Whispers.KINDS)) TOOL_INFO[k] = [name + ' (effetto sonoro)', desc + SOUND_NOTE];
+  function showToolInfo(t) { const i = TOOL_INFO[t]; if (!i) return; $('toolInfoName').textContent = i[0]; $('toolInfoTxt').textContent = i[1]; $('toolListen').hidden = !SOUND.includes(t); }
+  // the same sounds as in the game (whispers.js), through the same master bus (gain x3.2 + compressor)
+  let actx = null, abus = null;
+  function whisper(kind) {
+    const a = actx = actx || new (window.AudioContext || window.webkitAudioContext)(); if (a.state === 'suspended') a.resume();
+    if (!abus) {
+      abus = a.createGain(); abus.gain.value = 3.2;
+      const c = a.createDynamicsCompressor(); c.threshold.value = -14; c.knee.value = 8; c.ratio.value = 5; c.attack.value = 0.003; c.release.value = 0.2;
+      abus.connect(c).connect(a.destination);
+    }
+    Whispers.play(a, abus, kind);
+  }
+  document.querySelectorAll('.tool').forEach(b => {
+    b.addEventListener('mouseenter', () => showToolInfo(b.dataset.t));
+    b.addEventListener('mouseleave', () => showToolInfo(tool));
+    b.addEventListener('focus', () => showToolInfo(b.dataset.t));
+  });
+  function setTool(t) {
+    tool = t; showToolInfo(t);
+    document.querySelectorAll('.tool').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.t === t)));
+    cv.style.cursor = t === 'pan' ? 'grab' : 'crosshair';
+  }
+  document.querySelectorAll('.tool').forEach(b => b.addEventListener('click', () => setTool(b.dataset.t)));
+  setTool('#');
+
+  document.addEventListener('keydown', e => {
+    const typing = /INPUT|TEXTAREA/.test(document.activeElement.tagName);
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !typing) { e.preventDefault(); undo(); return; }
+    if (typing) return;
+    if (e.key === ' ') { spaceDown = true; cv.style.cursor = 'grab'; e.preventDefault(); }
+    const map = { '0': 'pan', '1': '#', '2': '.', '3': 'S', '4': 'E', '5': '*', '6': 'M', '7': 'F', '8': 'K', '9': 'H', c: 'C', v: 'V', l: 'L', r: 'R', g: 'G', b: 'B', t: 'T', x: 'X', w: 'W', z: 'Z', p: 'P', a: 'A', d: 'D', n: 'N' };
+    if (map[e.key] && !e.ctrlKey && !e.metaKey && !e.altKey) setTool(map[e.key]);
+    if (e.key === '+' || e.key === '=') zoomAt(1.25, CW / 2, CH / 2);
+    if (e.key === '-') zoomAt(0.8, CW / 2, CH / 2);
+  });
+  document.addEventListener('keyup', e => { if (e.key === ' ') { spaceDown = false; setTool(tool); } });
+
+  /* ---------- actions ---------- */
+  function generate() {
+    extraHeader = [];
+    pushUndo();
+    const w = parseInt($('gw').value, 10) || 41, h = parseInt($('gh').value, 10) || 41;
+    const g = Maze.generate({ w: Math.min(401, w), h: Math.min(401, h), braid: (parseInt($('gbraid').value, 10) || 0) / 100, gems: parseInt($('ggems').value, 10) || 0, enemies: parseInt($('genemies').value, 10) || 0, fires: parseInt($('gfires').value, 10) || 0, seed: $('gseed').value || 'lanterna' });
+    $('gw').value = g.w; $('gh').value = g.h;
+    setRows(g.rows);
+    changed();
+    toast(`Generato ${g.w} × ${g.h}, percorso più breve ${g.par} passi.`);
+  }
+  function blank() {
+    extraHeader = [];
+    pushUndo();
+    const w = Math.max(5, Math.min(401, parseInt($('gw').value, 10) || 41)), h = Math.max(5, Math.min(401, parseInt($('gh').value, 10) || 41));
+    const rows = [];
+    for (let y = 0; y < h; y++) {
+      let r = '';
+      for (let x = 0; x < w; x++) r += (x === 0 || y === 0 || x === w - 1 || y === h - 1) ? '#' : '.';
+      rows.push(r);
+    }
+    rows[1] = rows[1].slice(0, 1) + 'S' + rows[1].slice(2);
+    rows[h - 2] = rows[h - 2].slice(0, w - 2) + 'E' + rows[h - 2].slice(w - 1);
+    setRows(rows);
+    changed();
+  }
+  const words = ['falco', 'grotta', 'pietra', 'nebbia', 'ombra', 'ferro', 'lupo', 'torre', 'vento', 'fiume', 'rovo', 'cripta'];
+  $('dice').addEventListener('click', () => { $('gseed').value = words[Math.floor(Math.random() * words.length)] + '-' + Math.floor(Math.random() * 1000); });
+  $('gen').addEventListener('click', generate);
+  $('blank').addEventListener('click', blank);
+  $('undo').addEventListener('click', undo);
+  ['lname', 'ltorch', 'lpar', 'lspeed', 'fname'].forEach(id => $(id).addEventListener('input', changed));
+  $('lparAuto').addEventListener('change', changed);
+  $('showPath').addEventListener('change', draw);
+  $('zin').addEventListener('click', () => zoomAt(1.25, CW / 2, CH / 2));
+  $('zout').addEventListener('click', () => zoomAt(0.8, CW / 2, CH / 2));
+  $('zfit').addEventListener('click', fitView);
+  $('fromText').addEventListener('click', () => loadText($('text').value));
+  /* files: in Chrome / Edge the editor works on the real file (open it, then Salva writes back into it);
+     elsewhere (Safari, Firefox) Salva downloads a copy */
+  const canFS = 'showOpenFilePicker' in window;
+  const FS_TYPES = [{ description: 'Livello di Lanterna', accept: { 'text/plain': ['.txt'] } }];
+  let fileHandle = null;
+  function fileUi() {
+    $('save').textContent = fileHandle ? 'Salva in ' + fileHandle.name : (canFS ? 'Salva…' : 'Scarica .txt');
+    $('saveAs').hidden = !canFS;
+  }
+  fileUi();
+  $('openBtn').addEventListener('click', async () => {
+    if (!canFS) return $('openFile').click();
+    try {
+      const [h] = await window.showOpenFilePicker({ types: FS_TYPES, multiple: false });
+      const f = await h.getFile();
+      loadText(await f.text()); fileHandle = h; $('fname').value = f.name; fileUi();
+      toast('Aperto ' + f.name + ': Salva scrive direttamente in questo file.');
+    } catch (e) { if (e && e.name !== 'AbortError') $('openFile').click(); }
+  });
+  async function writeTo(h) {
+    validate();
+    const w = await h.createWritable(); await w.write(currentText()); await w.close();
+    fileHandle = h; $('fname').value = h.name; fileUi();
+    toast('Salvato in ' + h.name + '.' + (parsed.errors.length ? ' Attenzione: il livello ha errori, il gioco non lo aprirà.' : ''));
+  }
+  async function saveAs() {
+    let name = ($('fname').value.trim() || 'livello.txt').replace(/[^\w.\-]/g, '_');
+    if (!/\.txt$/i.test(name)) name += '.txt';
+    try { await writeTo(await window.showSaveFilePicker({ suggestedName: name, types: FS_TYPES })); }
+    catch (e) { if (e && e.name !== 'AbortError') toast('Salvataggio non riuscito: ' + (e.message || e)); }
+  }
+  $('saveAs').addEventListener('click', saveAs);
+
+  /* ---------- share with the community: a pull request that adds one file to community/levels/ ---------- */
+  const COMMUNITY = { repo: 'daviderota/lanterna-community', branch: 'main', dir: 'community/levels' };
+  const slug = t => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 48);
+  const sharePathUi = () => { $('sharePath').textContent = `${COMMUNITY.dir}/${slug($('shareName').value) || '…'}.txt`; };
+  $('shareName').addEventListener('input', sharePathUi);
+  $('share').addEventListener('click', () => {
+    validate();
+    if (parsed.errors.length) { toast('Prima correggi gli errori: il livello deve essere valido.'); return; }
+    if (!$('lname').value.trim()) { toast('Dai un nome al labirinto (campo Nome).'); $('lname').focus(); return; }
+    $('shareName').value = slug($('lname').value) || 'labirinto';
+    sharePathUi();
+    $('shareDlg').showModal();
+  });
+  $('shareGo').addEventListener('click', () => {
+    const name = slug($('shareName').value);
+    if (!/^[a-z0-9][a-z0-9-]{1,47}$/.test(name)) { toast('Nome del file non valido: almeno 2 caratteri, lettere minuscole, numeri e trattini.'); return; }
+    const text = currentText();
+    try { navigator.clipboard.writeText(text).catch(() => {}); } catch (e) { /* the prefilled page still works for small mazes */ }
+    const base = `https://github.com/${COMMUNITY.repo}/new/${COMMUNITY.branch}/${COMMUNITY.dir}?filename=${encodeURIComponent(name + '.txt')}`;
+    const full = base + '&value=' + encodeURIComponent(text);
+    const tooLong = full.length > 7500;     // very long links can be refused: then the text is pasted by hand
+    window.open(tooLong ? base : full, '_blank', 'noopener');
+    $('shareDlg').close();
+    toast(tooLong ? 'Labirinto grande: su GitHub incolla il testo (Ctrl/Cmd+V), è già copiato.' : 'Su GitHub: Commit changes → Propose changes → Create pull request.');
+  });
+  ['gen', 'blank', 'fromText'].forEach(id => $(id).addEventListener('click', () => { fileHandle = null; fileUi(); }));   // a new level: not the opened file any more
+  document.addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); e.shiftKey && canFS ? saveAs() : $('save').click(); }
+  });
+  $('openFile').addEventListener('change', async e => {
+    const f = e.target.files[0]; if (!f) return;
+    loadText(await f.text());
+    $('fname').value = f.name;
+    e.target.value = '';
+  });
+  let downloads = null;
+  const inViewer = !!(window.claude && window.claude.use);
+  if (inViewer) window.claude.use('downloads').then(d => { downloads = d; }).catch(() => {});
+  $('save').addEventListener('click', async () => {
+    if (canFS) {                                   // write into the opened file (or choose where the first time)
+      if (!fileHandle) return saveAs();
+      try { return await writeTo(fileHandle); }
+      catch (e) { toast('Non riesco a scrivere in ' + fileHandle.name + ': scegli dove salvarlo.'); return saveAs(); }
+    }
+    validate();
+    let name = ($('fname').value.trim() || 'livello.txt').replace(/[^\w.\-]/g, '_');
+    if (!/\.txt$/i.test(name)) name += '.txt';
+    const text = currentText();
+    const note = parsed.errors.length ? ' Attenzione: il livello ha errori, il gioco non lo aprirà.' : '';
+    if (downloads) {
+      try { await downloads.save({ filename: name, data: text }); toast('File salvato.' + note); }
+      catch (e) { if (e && e.code !== 'declined') toast('Salvataggio non riuscito: usa Copia testo.'); }
+      return;
+    }
+    if (inViewer) { toast('Qui non posso salvare file: usa Copia testo.'); return; }
+    const blob = new Blob([text], { type: 'text/plain' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    toast('File scaricato.' + note);
+  });
+  $('copy').addEventListener('click', async () => {
+    validate();
+    try { await navigator.clipboard.writeText(currentText()); toast('Testo copiato.'); }
+    catch (e) { $('text').focus(); $('text').select(); toast('Copia non riuscita: il testo è selezionato qui a sinistra, usa Ctrl+C.'); }
+  });
+
+  let tt = null;
+  function toast(msg) { const t = $('toast'); t.textContent = msg; t.style.opacity = '1'; clearTimeout(tt); tt = setTimeout(() => t.style.opacity = '0', 2600); }
+
+  /* ---------- boot ---------- */
+  const draft = store.get('draft', null);
+  requestAnimationFrame(() => {
+    resize();
+    if (draft && draft.rows && draft.rows.length) {
+      extraHeader = draft.extra || [];
+      setRows(draft.rows);
+      $('lname').value = draft.name || ''; $('ltorch').value = draft.torch || 3; $('lspeed').value = draft.speed || '';
+      $('lparAuto').checked = draft.parAuto !== false; if (!$('lparAuto').checked) $('lpar').value = draft.par || '';
+      $('fname').value = draft.fname || '07.txt';
+      changed();
+    } else {
+      $('lname').value = 'Nuovo livello';
+      generate(); undoStack.length = 0;
+    }
+    $('undo').disabled = !undoStack.length;
+  });
+  window.__editor = { get grid() { return grid; }, get parsed() { return parsed; } };
+})();
+</script>
+</body>
+</html>
