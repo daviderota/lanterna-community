@@ -683,7 +683,7 @@ dialog input { width: 100%; }
   $('saveAs').addEventListener('click', saveAs);
 
   /* ---------- share with the community: a pull request that adds one file to community/levels/ ---------- */
-  const COMMUNITY = { repo: 'daviderota/lanterna-community', branch: 'main', dir: 'community/levels' };
+  const COMMUNITY = { repo: 'rodaown/lanterna-community', branch: 'main', dir: 'community/levels' };
   const slug = t => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 48);
   const sharePathUi = () => { $('sharePath').textContent = `${COMMUNITY.dir}/${slug($('shareName').value) || '…'}.txt`; };
   $('shareName').addEventListener('input', sharePathUi);
