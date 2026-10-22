@@ -1,0 +1,33 @@
+# Checks the pull requests that add community mazes.
+# A community PR may only add or change .txt files in community/levels/, and every file must be a valid Lanterna level.
+# The checker and maze.js are taken from the base branch (main), never from the pull request, so a PR cannot change the rules.
+name: Labirinti della community
+
+on:
+  pull_request:     # every pull request: any file outside community/levels/ makes the check fail
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Codice della pull request
+        uses: actions/checkout@v4
+        with:
+          path: pr
+          fetch-depth: 0
+      - name: Regole dal ramo principale
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.base_ref }}
+          path: base
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Controlla i labirinti
+        working-directory: pr
+        run: |
+          git diff --name-status --no-renames "origin/${{ github.base_ref }}...HEAD" > "$RUNNER_TEMP/changed.txt"
+          node ../base/.github/scripts/check-community-levels.js "$RUNNER_TEMP/changed.txt" ../base/maze.js
