@@ -20,7 +20,7 @@ Qui ci sono i labirinti di **Lanterna – Il Labirinto Oscuro** creati dai gioca
 
 - Si possono aggiungere solo file `.txt` in questa cartella (`community/levels/`). Pull request che cambiano altri file non vengono accettate.
 - Nome del file: lettere minuscole, numeri e trattini, per esempio `la-torre-di-luca.txt`.
-- Il labirinto deve essere valido per il gioco, avere un nome (`name:`) e una strada dalla partenza all'uscita. Massimo 101 × 101 caselle.
+- Il labirinto deve essere valido per il gioco, avere un nome (`name:`) e una strada dalla partenza all'uscita. Massimo 71 × 71 caselle.
 - Testi (nome, storia, diario) in tono adatto a tutti: niente insulti, contenuti violenti o volgari, dati personali, link o pubblicità.
 - Inviando un labirinto accetti che venga pubblicato in questo progetto e, in futuro, nel gioco, con il tuo nome utente GitHub come autore.
 - Il proprietario del progetto può rifiutare o modificare qualsiasi proposta.
@@ -43,7 +43,7 @@ This folder holds the mazes for **Lanterna – The Dark Maze** made by players.
 
 - Only `.txt` files in this folder (`community/levels/`). Pull requests that change other files are not accepted.
 - File name: lowercase letters, numbers and dashes, for example `lukes-tower.txt`.
-- The maze must be valid for the game, have a name (`name:`) and a way from the start to the exit. At most 101 × 101 cells.
+- The maze must be valid for the game, have a name (`name:`) and a way from the start to the exit. At most 71 × 71 cells.
 - Texts (name, story, diary) suitable for everyone: no insults, violent or vulgar content, personal data, links or ads.
 - By submitting a maze you agree that it is published in this project and, later, in the game, with your GitHub username as the author.
 - The project owner may reject or edit any submission.
